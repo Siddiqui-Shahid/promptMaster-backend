@@ -1,6 +1,12 @@
-# Prompt-Based Business Opportunity Backend
+# PromptMaster Backend
 
 Production-ready FastAPI backend for a prompt orchestration platform.
+
+| Repo | URL |
+|------|-----|
+| **This API** | [promptMaster-backend](https://github.com/Siddiqui-Shahid/promptMaster-backend) |
+| **Flutter app** | [promptMaster-frontend](https://github.com/Siddiqui-Shahid/promptMaster-frontend) |
+| **Monorepo** | [promptMaster](https://github.com/Siddiqui-Shahid/promptMaster) |
 
 ## Overview
 - FastAPI API-only backend
