@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import get_settings
 from app.database.models import Base, User
-from app.database.url import to_async_database_url
+from app.core.db_url import to_async_database_url
 from app.prompts.models import Prompt  # noqa: F401
 
 

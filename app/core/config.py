@@ -2,7 +2,7 @@ import os
 from functools import lru_cache
 from dotenv import load_dotenv
 
-from app.database.url import normalize_database_url, resolve_database_url_from_env
+from app.core.db_url import normalize_database_url, resolve_database_url_from_env
 
 load_dotenv()
 

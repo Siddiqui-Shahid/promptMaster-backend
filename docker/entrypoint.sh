@@ -7,7 +7,7 @@ import time
 
 from sqlalchemy import create_engine, text
 
-from app.database.url import resolve_database_url_from_env, to_sync_database_url
+from app.core.db_url import resolve_database_url_from_env, to_sync_database_url
 
 raw_url = resolve_database_url_from_env()
 if not raw_url:

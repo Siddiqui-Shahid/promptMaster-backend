@@ -10,7 +10,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
 from app.core.config import get_settings
-from app.database.url import is_valid_postgres_url
+from app.core.db_url import is_valid_postgres_url
 
 
 logger = logging.getLogger("app.security")
