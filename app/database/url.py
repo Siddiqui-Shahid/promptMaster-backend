@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import re
+from urllib.parse import quote_plus
 
 _POSTGRES_SCHEMES = (
     "postgresql+psycopg://",
@@ -14,6 +16,27 @@ _RAILWAY_STYLE_PREFIXES = (
     ("postgresql://", "postgresql+psycopg://"),
     ("postgres://", "postgresql+psycopg://"),
 )
+
+
+def resolve_database_url_from_env() -> str:
+    """Read DATABASE_URL from env, including Railway/Heroku-style variable names."""
+    for key in ("DATABASE_URL", "DATABASE_PRIVATE_URL", "POSTGRES_URL"):
+        value = os.getenv(key, "").strip()
+        if value:
+            return normalize_database_url(value)
+
+    user = os.getenv("PGUSER", "").strip()
+    password = os.getenv("PGPASSWORD", "").strip()
+    host = os.getenv("PGHOST", "").strip()
+    port = os.getenv("PGPORT", "5432").strip()
+    database = os.getenv("PGDATABASE", "").strip()
+    if user and password and host and database:
+        return (
+            f"postgresql+psycopg://{quote_plus(user)}:{quote_plus(password)}"
+            f"@{host}:{port}/{database}"
+        )
+
+    return ""
 
 
 def normalize_database_url(url: str) -> str:

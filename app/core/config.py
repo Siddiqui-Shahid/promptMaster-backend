@@ -2,7 +2,7 @@ import os
 from functools import lru_cache
 from dotenv import load_dotenv
 
-from app.database.url import normalize_database_url
+from app.database.url import normalize_database_url, resolve_database_url_from_env
 
 load_dotenv()
 
@@ -13,10 +13,13 @@ class Settings:
         self.app_host = os.getenv("APP_HOST", "0.0.0.0")
         self.app_port = int(os.getenv("APP_PORT", "8000"))
 
-        self.database_url = normalize_database_url(
-            os.getenv(
-                "DATABASE_URL",
-                "postgresql+psycopg://postgres:postgres@localhost:5432/prompt_platform",
+        self.database_url = (
+            resolve_database_url_from_env()
+            or normalize_database_url(
+                os.getenv(
+                    "DATABASE_URL",
+                    "postgresql+psycopg://postgres:postgres@localhost:5432/prompt_platform",
+                )
             )
         )
 

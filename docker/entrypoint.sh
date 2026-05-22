@@ -7,11 +7,15 @@ import time
 
 from sqlalchemy import create_engine, text
 
-from app.database.url import to_sync_database_url
+from app.database.url import resolve_database_url_from_env, to_sync_database_url
 
-raw_url = os.getenv("DATABASE_URL", "")
+raw_url = resolve_database_url_from_env()
 if not raw_url:
-    raise RuntimeError("DATABASE_URL is not set")
+    raise RuntimeError(
+        "DATABASE_URL is not set on this Railway service. "
+        "Open your API service (not Postgres) → Variables → Add Reference → "
+        "PostgreSQL → DATABASE_URL, then redeploy."
+    )
 
 url = to_sync_database_url(raw_url)
 
@@ -28,4 +32,4 @@ for attempt in range(30):
         time.sleep(2)
 PY
 
-exec uvicorn main:app --host "${APP_HOST:-0.0.0.0}" --port "${APP_PORT:-8000}"
+exec uvicorn main:app --host "${APP_HOST:-0.0.0.0}" --port "${APP_PORT:-${PORT:-8000}}"
