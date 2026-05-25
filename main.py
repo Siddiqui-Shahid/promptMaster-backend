@@ -1,12 +1,10 @@
 from app.base import app
-from app.buisness import router as business_router
 from app.core.config import get_settings
 
-# Backward-compatible business route alias
-app.include_router(business_router)
+__all__ = ["app"]
 
 if __name__ == "__main__":
     import uvicorn
-    settings = get_settings()
 
-    uvicorn.run("main:app", host=settings.app_host, port=settings.app_port, reload=False)
+    cfg = get_settings()
+    uvicorn.run("main:app", host=cfg.app_host, port=cfg.app_port, reload=False)

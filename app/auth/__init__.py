@@ -1,3 +1,3 @@
-from .service import auth_backend, current_active_user, fastapi_users, get_user_manager
+from .deps import AuthenticatedUser, get_current_user
 
-__all__ = ["auth_backend", "current_active_user", "fastapi_users", "get_user_manager"]
+__all__ = ["AuthenticatedUser", "get_current_user"]

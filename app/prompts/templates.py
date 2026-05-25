@@ -12,6 +12,14 @@ SYSTEM_TEMPLATES = {
         "Hard constraint: every recommended opportunity must be feasible within 14 calendar days "
         "for frontend, backend, QA, and deployment. If not feasible, downgrade to a smaller MVP scope."
     ),
+    "sparse_input_guardrail": (
+        "Some business inputs may be missing. Use only the provided facts, state reasonable assumptions "
+        "explicitly where context is absent, and keep recommendations practical for Indian MSMEs."
+    ),
+    "budget_inr_default": (
+        "All pricing and development estimates must be in INR (₹). If no budget range was provided, "
+        "assume a maximum recommended development budget of ₹200,000 unless notes suggest otherwise."
+    ),
 }
 
 INDUSTRY_TEMPLATES = {

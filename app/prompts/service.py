@@ -2,16 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import random
-from datetime import datetime, timezone
-
-from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.database.models import User
 
 from .classifier import classify_business
-from .models import Prompt
-from .schemas import PromptGenerateRequest
+from .schemas import DEFAULT_MAX_BUDGET_INR, PromptGenerateRequest
 from .templates import (
     INDUSTRY_TEMPLATES,
     ROI_TEMPLATES,
@@ -23,11 +16,33 @@ from .utils import build_prompt_title, sanitize_business_type
 from .variations import VARIATIONS
 
 
-PROMPT_VERSION = "v1.2.0"
+PROMPT_VERSION = "v1.3.0"
 MAX_PROMPT_LENGTH = 8000
 
 
 class PromptService:
+    @staticmethod
+    def _has(value: str | None) -> bool:
+        return bool(value and value.strip())
+
+    def _budget_section(self, request: PromptGenerateRequest) -> str:
+        if request.budget_min is not None and request.budget_max is not None:
+            return (
+                f"Budget Range (INR): ₹{request.budget_min:,} (minimum) to ₹{request.budget_max:,} (maximum). "
+                "All development cost estimates must stay within this range."
+            )
+        if request.budget_min is not None:
+            return (
+                f"Minimum Budget (INR): ₹{request.budget_min:,}. "
+                f"If no maximum was provided, cap recommendations at ₹{DEFAULT_MAX_BUDGET_INR:,} unless notes say otherwise."
+            )
+        if request.budget_max is not None:
+            return (
+                f"Maximum Budget (INR): ₹{request.budget_max:,}. "
+                "All development cost estimates must stay at or below this amount."
+            )
+        return SYSTEM_TEMPLATES["budget_inr_default"]
+
     def _seeded_rng(self, request: PromptGenerateRequest, salt: int = 0) -> random.Random:
         seed_basis = "|".join(
             [
@@ -39,6 +54,8 @@ class PromptService:
                 request.current_software,
                 request.target_goal,
                 request.additional_notes,
+                str(request.budget_min or ""),
+                str(request.budget_max or ""),
                 str(salt),
             ]
         )
@@ -57,76 +74,95 @@ class PromptService:
         rng_salt: int,
     ) -> str:
         rng = self._seeded_rng(request, rng_salt)
-        sections = [
-            SYSTEM_TEMPLATES["core_instruction"],
-            self._pick(rng, "business_type_fragments").format(
-                business_type=request.business_type,
-                location=request.location,
-            ),
-            f"Business Size Context: {request.business_size}.",
-            f"Current Process Snapshot: {request.current_process}.",
-            self._pick(rng, "pain_point_fragments").format(biggest_problem=request.biggest_problem),
-            f"Current Software Environment: {request.current_software}.",
-            f"Primary Target Goal: {request.target_goal}.",
-            INDUSTRY_TEMPLATES.get(category, INDUSTRY_TEMPLATES["general_business"]),
-            f"Detected Problem Signals: {', '.join(detected_problems)}.",
-            f"Potential Software Directions: {', '.join(recommended_software)}.",
-            SYSTEM_TEMPLATES["delivery_guardrail"],
-            self._pick(rng, "delivery_fragments"),
-            self._pick(rng, "roi_fragments"),
-            self._pick(rng, "tone_fragments"),
-            self._pick(rng, "automation_fragments"),
-            self._pick(rng, "software_fragments"),
-            rng.choice(ROI_TEMPLATES),
-            rng.choice(TECHNICAL_RECOMMENDATION_TEMPLATES),
-            rng.choice(SALES_FRAMING_TEMPLATES),
-            self._pick(rng, "expansion_fragments"),
-            SYSTEM_TEMPLATES["output_contract"],
-        ]
+        has_sparse_input = not any(
+            [
+                self._has(request.business_type),
+                self._has(request.business_size),
+                self._has(request.location),
+                self._has(request.current_process),
+                self._has(request.biggest_problem),
+                self._has(request.current_software),
+                self._has(request.target_goal),
+                self._has(request.additional_notes),
+            ]
+        )
 
-        if request.additional_notes:
-            sections.append(f"Additional Business Notes: {request.additional_notes}.")
+        sections: list[str] = [SYSTEM_TEMPLATES["core_instruction"]]
+
+        if self._has(request.business_type) or self._has(request.location):
+            business_type = request.business_type.strip() if self._has(request.business_type) else "local business"
+            location = request.location.strip() if self._has(request.location) else "India"
+            sections.append(
+                self._pick(rng, "business_type_fragments").format(
+                    business_type=business_type,
+                    location=location,
+                )
+            )
+        elif not has_sparse_input:
+            sections.append("You are advising a local MSME business operating in India.")
+
+        if self._has(request.business_size):
+            sections.append(f"Business Size Context: {request.business_size.strip()}.")
+
+        if self._has(request.current_process):
+            sections.append(f"Current Process Snapshot: {request.current_process.strip()}.")
+
+        if self._has(request.biggest_problem):
+            sections.append(
+                self._pick(rng, "pain_point_fragments").format(biggest_problem=request.biggest_problem.strip())
+            )
+
+        if self._has(request.current_software):
+            sections.append(f"Current Software Environment: {request.current_software.strip()}.")
+
+        if self._has(request.target_goal):
+            sections.append(f"Primary Target Goal: {request.target_goal.strip()}.")
+
+        sections.append(self._budget_section(request))
+        sections.append(INDUSTRY_TEMPLATES.get(category, INDUSTRY_TEMPLATES["general_business"]))
+        sections.append(f"Detected Problem Signals: {', '.join(detected_problems)}.")
+        sections.append(f"Potential Software Directions: {', '.join(recommended_software)}.")
+
+        if has_sparse_input:
+            sections.append(SYSTEM_TEMPLATES["sparse_input_guardrail"])
+        else:
+            sections.append(
+                "Work only from the business details provided above. Do not invent specific facts that were not supplied."
+            )
+
+        sections.extend(
+            [
+                SYSTEM_TEMPLATES["delivery_guardrail"],
+                self._pick(rng, "delivery_fragments"),
+                self._pick(rng, "roi_fragments"),
+                self._pick(rng, "tone_fragments"),
+                self._pick(rng, "automation_fragments"),
+                self._pick(rng, "software_fragments"),
+                rng.choice(ROI_TEMPLATES),
+                rng.choice(TECHNICAL_RECOMMENDATION_TEMPLATES),
+                rng.choice(SALES_FRAMING_TEMPLATES),
+                self._pick(rng, "expansion_fragments"),
+                SYSTEM_TEMPLATES["output_contract"],
+            ]
+        )
+
+        if self._has(request.additional_notes):
+            sections.append(f"Additional Business Notes: {request.additional_notes.strip()}.")
 
         final_prompt = "\n\n".join(sections).strip()
         if len(final_prompt) > MAX_PROMPT_LENGTH:
             final_prompt = final_prompt[:MAX_PROMPT_LENGTH].rstrip() + "\n\n[Prompt trimmed for safety constraints.]"
         return final_prompt
 
-    async def cleanup_expired_prompts(self, session: AsyncSession) -> None:
-        now = datetime.utcnow()
-        await session.execute(delete(Prompt).where(Prompt.expires_at <= now))
-        await session.commit()
-
-    async def _next_title_for_user(self, session: AsyncSession, user: User, business_type_raw: str) -> tuple[str, str]:
-        normalized_type, readable_type = sanitize_business_type(business_type_raw)
-
-        result = await session.execute(
-            select(Prompt.business_type).where(Prompt.user_id == user.id)
-        )
-        existing_types = result.scalars().all()
-        existing_count = 0
-        for existing in existing_types:
-            existing_normalized, _ = sanitize_business_type(existing)
-            if existing_normalized == normalized_type:
-                existing_count += 1
-
-        title = build_prompt_title(readable_type, existing_count + 1)
-        return title, readable_type
-
-    async def generate_and_store(self, session: AsyncSession, user: User, request: PromptGenerateRequest) -> dict:
-        await self.cleanup_expired_prompts(session)
-
+    def generate(self, request: PromptGenerateRequest) -> dict:
         category, detected_problems, recommended_software = classify_business(
             business_type=request.business_type,
             biggest_problem=request.biggest_problem,
             current_process=request.current_process,
         )
 
-        prompt_count_result = await session.execute(
-            select(Prompt.id).where(Prompt.user_id == user.id)
-        )
-        salt = len(prompt_count_result.scalars().all())
-
+        seed_source = request.business_type or request.biggest_problem or request.target_goal or "general"
+        salt = int(hashlib.sha256(seed_source.encode()).hexdigest()[:8], 16)
         generated_prompt = self._build_prompt(
             request=request,
             category=category,
@@ -135,17 +171,8 @@ class PromptService:
             rng_salt=salt,
         )
 
-        title, readable_business_type = await self._next_title_for_user(session, user, request.business_type)
-
-        prompt_record = Prompt(
-            user_id=user.id,
-            title=title,
-            generated_prompt=generated_prompt,
-            business_type=readable_business_type,
-        )
-        session.add(prompt_record)
-        await session.commit()
-        await session.refresh(prompt_record)
+        _, readable_business_type = sanitize_business_type(request.business_type)
+        title = build_prompt_title(readable_business_type, 1)
 
         return {
             "success": True,
@@ -154,27 +181,9 @@ class PromptService:
             "recommended_software": recommended_software,
             "generated_prompt": generated_prompt,
             "prompt_version": PROMPT_VERSION,
-            "prompt_id": prompt_record.id,
-            "title": prompt_record.title,
-            "created_at": prompt_record.created_at.replace(tzinfo=timezone.utc),
-            "expires_at": prompt_record.expires_at.replace(tzinfo=timezone.utc),
+            "title": title,
+            "business_type": readable_business_type,
         }
-
-    async def list_user_prompts(self, session: AsyncSession, user: User) -> list[Prompt]:
-        await self.cleanup_expired_prompts(session)
-        result = await session.execute(
-            select(Prompt)
-            .where(Prompt.user_id == user.id)
-            .order_by(Prompt.created_at.desc())
-        )
-        return list(result.scalars().all())
-
-    async def get_user_prompt(self, session: AsyncSession, user: User, prompt_id: int) -> Prompt | None:
-        await self.cleanup_expired_prompts(session)
-        result = await session.execute(
-            select(Prompt).where(Prompt.id == prompt_id, Prompt.user_id == user.id)
-        )
-        return result.scalars().first()
 
 
 prompt_service = PromptService()

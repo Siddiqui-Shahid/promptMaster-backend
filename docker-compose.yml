@@ -1,23 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-prompt_platform}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-prompt_platform}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   backend:
     build: .
     restart: unless-stopped
@@ -27,21 +8,8 @@ services:
       APP_ENV: ${APP_ENV:-development}
       APP_HOST: ${APP_HOST:-0.0.0.0}
       APP_PORT: ${APP_PORT:-8000}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_LIFETIME_SECONDS: ${JWT_LIFETIME_SECONDS:-3600}
+      SUPABASE_URL: ${SUPABASE_URL:-https://gmpvqdtspyxruunscvpc.supabase.co}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1}
-      CORS_ALLOWED_ORIGIN_REGEX: ${CORS_ALLOWED_ORIGIN_REGEX:-http://(localhost|127\.0\.0\.1)(:\d+)?$}
-      IMAGEKIT_PRIVATE_KEY: ${IMAGEKIT_PRIVATE_KEY:-}
-      IMAGEKIT_URL_ENDPOINT: ${IMAGEKIT_URL_ENDPOINT:-}
-      POSTGRES_DB: ${POSTGRES_DB:-prompt_platform}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-prompt_platform}
-    depends_on:
-      postgres:
-        condition: service_healthy
+      CORS_ALLOWED_ORIGIN_REGEX: ${CORS_ALLOWED_ORIGIN_REGEX:-https?://(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)(:\d+)?$}
     ports:
       - "${APP_PORT:-8000}:8000"
-
-volumes:
-  postgres_data:

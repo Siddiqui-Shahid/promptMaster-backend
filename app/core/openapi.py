@@ -20,18 +20,15 @@ def configure_openapi(app: FastAPI) -> None:
         components = schema.setdefault("components", {})
         security_schemes = components.setdefault("securitySchemes", {})
 
-        oauth2 = security_schemes.get("OAuth2PasswordBearer")
-        if oauth2 and "flows" in oauth2:
-            password_flow = oauth2["flows"].get("password", {})
-            password_flow["tokenUrl"] = "/auth/jwt/login"
-
         security_schemes["BearerAuth"] = {
             "type": "http",
             "scheme": "bearer",
             "bearerFormat": "JWT",
             "description": (
-                "Paste JWT only (no 'Bearer' prefix), or use OAuth2 login below. "
-                "Get a token from POST /auth/jwt/login with email as username."
+                "Supabase access token from the Flutter client "
+                "(Authorization: Bearer <access_token>). "
+                "Sign in with Google via Supabase Auth, then copy "
+                "currentSession.accessToken."
             ),
         }
 

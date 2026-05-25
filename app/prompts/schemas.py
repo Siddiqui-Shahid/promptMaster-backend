@@ -1,21 +1,22 @@
-from datetime import datetime
-
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 MAX_FIELD_LENGTH = 600
 MAX_NOTES_LENGTH = 1200
+DEFAULT_MAX_BUDGET_INR = 200_000
 
 
 class PromptGenerateRequest(BaseModel):
-    business_type: str = Field(..., min_length=1, max_length=120)
-    business_size: str = Field(..., min_length=2, max_length=120)
-    location: str = Field(..., min_length=2, max_length=160)
-    current_process: str = Field(..., min_length=10, max_length=MAX_FIELD_LENGTH)
-    biggest_problem: str = Field(..., min_length=10, max_length=MAX_FIELD_LENGTH)
-    current_software: str = Field(..., min_length=2, max_length=MAX_FIELD_LENGTH)
-    target_goal: str = Field(..., min_length=10, max_length=MAX_FIELD_LENGTH)
+    business_type: str = Field(default="", max_length=120)
+    business_size: str = Field(default="", max_length=120)
+    location: str = Field(default="", max_length=160)
+    current_process: str = Field(default="", max_length=MAX_FIELD_LENGTH)
+    biggest_problem: str = Field(default="", max_length=MAX_FIELD_LENGTH)
+    current_software: str = Field(default="", max_length=MAX_FIELD_LENGTH)
+    target_goal: str = Field(default="", max_length=MAX_FIELD_LENGTH)
     additional_notes: str = Field(default="", max_length=MAX_NOTES_LENGTH)
+    budget_min: int | None = Field(default=None, ge=0)
+    budget_max: int | None = Field(default=None, ge=0)
 
     @field_validator(
         "business_type",
@@ -35,20 +36,11 @@ class PromptGenerateRequest(BaseModel):
             raise ValueError("Unsafe input detected")
         return clean
 
-
-class PromptSummaryResponse(BaseModel):
-    id: int
-    title: str
-    created_at: datetime
-
-
-class PromptDetailResponse(BaseModel):
-    id: int
-    title: str
-    business_type: str
-    generated_prompt: str
-    created_at: datetime
-    expires_at: datetime
+    @model_validator(mode="after")
+    def validate_budget_range(self) -> "PromptGenerateRequest":
+        if self.budget_min is not None and self.budget_max is not None and self.budget_min > self.budget_max:
+            raise ValueError("budget_min cannot be greater than budget_max")
+        return self
 
 
 class PromptGenerateResponse(BaseModel):
@@ -58,7 +50,5 @@ class PromptGenerateResponse(BaseModel):
     recommended_software: list[str]
     generated_prompt: str
     prompt_version: str
-    prompt_id: int
     title: str
-    created_at: datetime
-    expires_at: datetime
+    business_type: str
