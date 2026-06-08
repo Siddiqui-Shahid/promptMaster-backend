@@ -12,8 +12,8 @@ class Settings:
         self.app_host = os.getenv("APP_HOST", "0.0.0.0")
         self.app_port = int(os.getenv("APP_PORT", "8000"))
 
-        # Public ID — matches frontend lib/firebase_options.dart; override via env on other projects.
-        self.firebase_project_id = os.getenv("FIREBASE_PROJECT_ID", "promptmaster-497306").strip()
+        # Public ID — must match the Firebase project used by the Flutter app.
+        self.firebase_project_id = os.getenv("FIREBASE_PROJECT_ID", "asdasdasdasdasdasdertghrh").strip()
 
         self.cors_allowed_origins = os.getenv(
             "CORS_ALLOWED_ORIGINS",
