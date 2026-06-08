@@ -69,13 +69,14 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
 def validate_security_settings() -> None:
     if not settings.firebase_project_id:
         raise RuntimeError(
-            "FIREBASE_PROJECT_ID is required in backend/.env. "
-            "Set it to your Firebase project ID (Firebase Console → Project settings → General)."
+            "FIREBASE_PROJECT_ID is required. Set it in backend/.env locally or as a "
+            "service variable on your host (e.g. Railway → Variables). "
+            "Value: Firebase Console → Project settings → General → Project ID."
         )
 
     placeholder_ids = ("your-firebase-project-id", "YOUR_FIREBASE_PROJECT_ID", "your_project_id")
     if settings.firebase_project_id.lower() in {p.lower() for p in placeholder_ids}:
         raise RuntimeError(
-            "FIREBASE_PROJECT_ID in backend/.env is still a placeholder. "
-            "Set it to your Firebase project ID."
+            "FIREBASE_PROJECT_ID is still a placeholder. Set it to your Firebase project ID "
+            "(backend/.env locally or the host's environment variables)."
         )
