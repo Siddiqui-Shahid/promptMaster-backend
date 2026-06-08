@@ -1,20 +1,28 @@
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
-MAX_FIELD_LENGTH = 600
-MAX_NOTES_LENGTH = 1200
+MAX_TEXT_LENGTH = 100_000
 DEFAULT_MAX_BUDGET_INR = 200_000
+
+_UNSAFE_TOKENS = ("<script", "</script>", "javascript:")
+
+
+def _sanitize_text(value: str) -> str:
+    clean = value.replace("\x00", " ")
+    lowered = clean.lower()
+    if any(token in lowered for token in _UNSAFE_TOKENS):
+        raise ValueError("Unsafe input detected")
+    return clean
 
 
 class PromptGenerateRequest(BaseModel):
-    business_type: str = Field(default="", max_length=120)
-    business_size: str = Field(default="", max_length=120)
-    location: str = Field(default="", max_length=160)
-    current_process: str = Field(default="", max_length=MAX_FIELD_LENGTH)
-    biggest_problem: str = Field(default="", max_length=MAX_FIELD_LENGTH)
-    current_software: str = Field(default="", max_length=MAX_FIELD_LENGTH)
-    target_goal: str = Field(default="", max_length=MAX_FIELD_LENGTH)
-    additional_notes: str = Field(default="", max_length=MAX_NOTES_LENGTH)
+    business_type: str = Field(default="", max_length=MAX_TEXT_LENGTH)
+    business_size: str = Field(default="", max_length=MAX_TEXT_LENGTH)
+    location: str = Field(default="", max_length=MAX_TEXT_LENGTH)
+    current_process: str = Field(default="", max_length=MAX_TEXT_LENGTH)
+    biggest_problem: str = Field(default="", max_length=MAX_TEXT_LENGTH)
+    current_software: str = Field(default="", max_length=MAX_TEXT_LENGTH)
+    target_goal: str = Field(default="", max_length=MAX_TEXT_LENGTH)
+    additional_notes: str = Field(default="", max_length=MAX_TEXT_LENGTH)
     budget_min: int | None = Field(default=None, ge=0)
     budget_max: int | None = Field(default=None, ge=0)
 
@@ -29,12 +37,8 @@ class PromptGenerateRequest(BaseModel):
         "additional_notes",
     )
     @classmethod
-    def sanitize_text(cls, value: str) -> str:
-        clean = " ".join(value.replace("\x00", " ").split())
-        lowered = clean.lower()
-        if any(token in lowered for token in ["<script", "</script>", "javascript:"]):
-            raise ValueError("Unsafe input detected")
-        return clean
+    def sanitize_text_fields(cls, value: str) -> str:
+        return _sanitize_text(value)
 
     @model_validator(mode="after")
     def validate_budget_range(self) -> "PromptGenerateRequest":

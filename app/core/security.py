@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Callable
 
@@ -6,8 +7,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
 from app.core.config import get_settings
+from app.core.logging import dev_log
 
 settings = get_settings()
+http_logger = logging.getLogger("app.http")
 
 ALLOWED_CORS_HEADERS = [
     "Authorization",
@@ -17,6 +20,63 @@ ALLOWED_CORS_HEADERS = [
     "X-Requested-With",
 ]
 EXPOSED_CORS_HEADERS = ["X-Request-Id"]
+
+
+class DevCorsHardeningMiddleware(BaseHTTPMiddleware):
+    """Ensure Chrome Private Network Access headers on every response (including errors)."""
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        response = await call_next(request)
+        if settings.app_env == "production":
+            return response
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+        origin = request.headers.get("origin")
+        if origin and "Access-Control-Allow-Origin" not in response.headers:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
+
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Log every HTTP request/response for local debugging."""
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        request_id = getattr(request.state, "request_id", None)
+        origin = request.headers.get("origin")
+        has_auth = bool(request.headers.get("authorization"))
+
+        http_logger.info(
+            "request started",
+            extra={
+                "event": "http_request_start",
+                "method": request.method,
+                "path": request.url.path,
+                "origin": origin,
+                "has_auth": has_auth,
+                "request_id": request_id,
+            },
+        )
+        if request.url.path != "/health":
+            dev_log(
+                f"→ {request.method} {request.url.path} "
+                f"origin={origin or '-'} auth={'yes' if has_auth else 'NO TOKEN'}"
+            )
+
+        response = await call_next(request)
+
+        http_logger.info(
+            "request finished",
+            extra={
+                "event": "http_request_end",
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "request_id": request_id,
+            },
+        )
+        if request.url.path != "/health":
+            dev_log(f"← {response.status_code} {request.method} {request.url.path}")
+        return response
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):

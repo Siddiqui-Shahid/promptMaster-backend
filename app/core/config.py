@@ -25,7 +25,7 @@ class Settings:
         )
         self.cors_allowed_origin_regex = raw_regex.replace("\\\\", "\\") if self.app_env != "production" else None
 
-        self.max_request_size_bytes = int(os.getenv("MAX_REQUEST_SIZE_BYTES", "2097152"))
+        self.max_request_size_bytes = int(os.getenv("MAX_REQUEST_SIZE_BYTES", "10485760"))
         self.jwt_leeway_seconds = int(os.getenv("JWT_LEEWAY_SECONDS", "30"))
 
         self.prompt_generate_burst_limit = os.getenv("RATE_LIMIT_PROMPT_BURST", "5/minute")

@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClientConnectionError
 
-from app.core.logging import hash_user_id
+from app.core.logging import dev_log, hash_user_id
 
 from .firebase_jwt import verify_firebase_id_token
 
@@ -37,9 +37,16 @@ async def get_current_user(
     ip = _client_ip(request)
 
     if credentials is None or not credentials.credentials:
+        dev_log(f"AUTH FAIL {request.method} {request.url.path} — no Bearer token (sign in on frontend first)")
         logger.warning(
             "missing bearer token",
-            extra={"event": "auth_failure", "request_id": request_id, "ip": ip},
+            extra={
+                "event": "auth_failure",
+                "request_id": request_id,
+                "ip": ip,
+                "path": request.url.path,
+                "method": request.method,
+            },
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -64,9 +71,15 @@ async def get_current_user(
             ),
         ) from exc
     except jwt.ExpiredSignatureError:
+        dev_log(f"AUTH FAIL {request.method} {request.url.path} — Firebase token expired")
         logger.warning(
             "expired firebase token",
-            extra={"event": "auth_failure", "request_id": request_id, "ip": ip},
+            extra={
+                "event": "auth_failure",
+                "request_id": request_id,
+                "ip": ip,
+                "path": request.url.path,
+            },
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -74,9 +87,15 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
     except jwt.InvalidTokenError:
+        dev_log(f"AUTH FAIL {request.method} {request.url.path} — invalid Firebase token (project ID mismatch?)")
         logger.warning(
             "invalid firebase token",
-            extra={"event": "auth_failure", "request_id": request_id, "ip": ip},
+            extra={
+                "event": "auth_failure",
+                "request_id": request_id,
+                "ip": ip,
+                "path": request.url.path,
+            },
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -100,6 +119,7 @@ async def get_current_user(
 
     request.state.user_id = user_id
     user_hash = hash_user_id(user_id)
+    dev_log(f"AUTH OK {request.method} {request.url.path} user_hash={user_hash}")
     logger.info(
         "authenticated request",
         extra={
@@ -107,6 +127,7 @@ async def get_current_user(
             "user_id_hash": user_hash,
             "request_id": request_id,
             "ip": ip,
+            "path": request.url.path,
         },
     )
 

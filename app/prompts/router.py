@@ -6,7 +6,7 @@ from slowapi.util import get_remote_address
 
 from app.auth.deps import AuthenticatedUser, get_current_user
 from app.core.config import get_settings
-from app.core.logging import hash_user_id
+from app.core.logging import dev_log, hash_user_id
 
 from .schemas import PromptGenerateRequest, PromptGenerateResponse
 from .service import prompt_service
@@ -41,8 +41,13 @@ async def generate_prompt(
 ) -> PromptGenerateResponse:
     request_id = getattr(request.state, "request_id", None)
     user_hash = hash_user_id(str(user.id))
+    dev_log(
+        f"PROMPT generate user_hash={user_hash} "
+        f"business_type={payload.business_type!r} location={payload.location!r}"
+    )
     try:
         result = prompt_service.generate(request=payload)
+        dev_log(f"PROMPT OK user_hash={user_hash} title={result.get('title')!r}")
         logger.info(
             "prompt generated",
             extra={
@@ -53,8 +58,10 @@ async def generate_prompt(
         )
         return PromptGenerateResponse(**result)
     except ValueError as exc:
+        dev_log(f"PROMPT FAIL validation — {exc}")
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        dev_log(f"PROMPT FAIL error — {exc}")
         logger.exception(
             "prompt generation failed",
             extra={

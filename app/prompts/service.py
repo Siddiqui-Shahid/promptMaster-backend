@@ -6,6 +6,8 @@ import random
 from .classifier import classify_business
 from .schemas import DEFAULT_MAX_BUDGET_INR, PromptGenerateRequest
 from .templates import (
+    CYFUR_CONTACT_EMAIL,
+    CYFUR_WEBSITE,
     INDUSTRY_TEMPLATES,
     ROI_TEMPLATES,
     SALES_FRAMING_TEMPLATES,
@@ -16,14 +18,26 @@ from .utils import build_prompt_title, sanitize_business_type
 from .variations import VARIATIONS
 
 
-PROMPT_VERSION = "v1.3.0"
-MAX_PROMPT_LENGTH = 8000
+PROMPT_VERSION = "v1.5.0"
+MAX_PROMPT_LENGTH = 50_000
+MAX_NOTES_IN_PROMPT = 12_000
 
 
 class PromptService:
     @staticmethod
     def _has(value: str | None) -> bool:
         return bool(value and value.strip())
+
+    def _web_search_hints(self, request: PromptGenerateRequest) -> str:
+        parts = [p.strip() for p in (request.business_type, request.location) if self._has(p)]
+        if not parts and self._has(request.additional_notes):
+            snippet = request.additional_notes.strip().split("\n", 1)[0][:80]
+            parts.append(snippet)
+        query = " ".join(parts) if parts else "local MSME business India"
+        return (
+            f"Suggested search queries: \"{query}\", \"{query} reviews\", "
+            f"\"{query} Google Maps\", \"{query} competitors\"."
+        )
 
     def _budget_section(self, request: PromptGenerateRequest) -> str:
         if request.budget_min is not None and request.budget_max is not None:
@@ -87,7 +101,11 @@ class PromptService:
             ]
         )
 
-        sections: list[str] = [SYSTEM_TEMPLATES["core_instruction"]]
+        sections: list[str] = [
+            SYSTEM_TEMPLATES["core_instruction"],
+            SYSTEM_TEMPLATES["web_research_instruction"],
+            self._web_search_hints(request),
+        ]
 
         if self._has(request.business_type) or self._has(request.location):
             business_type = request.business_type.strip() if self._has(request.business_type) else "local business"
@@ -127,11 +145,16 @@ class PromptService:
             sections.append(SYSTEM_TEMPLATES["sparse_input_guardrail"])
         else:
             sections.append(
-                "Work only from the business details provided above. Do not invent specific facts that were not supplied."
+                "Combine the business details below with your web research. Do not invent facts that contradict cited sources."
             )
 
         sections.extend(
             [
+                SYSTEM_TEMPLATES["cyfur_company_context"],
+                SYSTEM_TEMPLATES["cyfur_delivery_scope"],
+                SYSTEM_TEMPLATES["cyfur_delivery_limits"],
+                SYSTEM_TEMPLATES["thread_guardrails"],
+                SYSTEM_TEMPLATES["email_on_request_instruction"],
                 SYSTEM_TEMPLATES["delivery_guardrail"],
                 self._pick(rng, "delivery_fragments"),
                 self._pick(rng, "roi_fragments"),
@@ -141,13 +164,24 @@ class PromptService:
                 rng.choice(ROI_TEMPLATES),
                 rng.choice(TECHNICAL_RECOMMENDATION_TEMPLATES),
                 rng.choice(SALES_FRAMING_TEMPLATES),
+                SYSTEM_TEMPLATES["sales_cta"],
                 self._pick(rng, "expansion_fragments"),
                 SYSTEM_TEMPLATES["output_contract"],
+                (
+                    f"Reminder: Cyfur contact {CYFUR_CONTACT_EMAIL} | {CYFUR_WEBSITE}. "
+                    "User may follow up in this chat with: 'write email' to get outreach copy."
+                ),
             ]
         )
 
         if self._has(request.additional_notes):
-            sections.append(f"Additional Business Notes: {request.additional_notes.strip()}.")
+            notes = request.additional_notes.strip()
+            if len(notes) > MAX_NOTES_IN_PROMPT:
+                notes = (
+                    f"{notes[:MAX_NOTES_IN_PROMPT].rstrip()}… "
+                    f"[{len(request.additional_notes)} chars pasted; truncated for prompt length]"
+                )
+            sections.append(f"Additional Business Notes: {notes}")
 
         final_prompt = "\n\n".join(sections).strip()
         if len(final_prompt) > MAX_PROMPT_LENGTH:

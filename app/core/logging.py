@@ -23,6 +23,11 @@ def hash_user_id(user_id: str) -> str:
     return hashlib.sha256(user_id.encode()).hexdigest()[:16]
 
 
+def dev_log(message: str) -> None:
+    """Human-readable line in the uvicorn terminal (filter with [BACKEND])."""
+    print(f"[BACKEND] {message}", flush=True)
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload = {
@@ -41,6 +46,8 @@ class JsonFormatter(logging.Formatter):
             "user_id_hash",
             "ip",
             "request_id",
+            "origin",
+            "has_auth",
         ):
             value = getattr(record, key, None)
             if value is not None:
