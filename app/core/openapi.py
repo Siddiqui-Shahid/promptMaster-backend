@@ -25,10 +25,9 @@ def configure_openapi(app: FastAPI) -> None:
             "scheme": "bearer",
             "bearerFormat": "JWT",
             "description": (
-                "Supabase access token from the Flutter client "
-                "(Authorization: Bearer <access_token>). "
-                "Sign in with Google via Supabase Auth, then copy "
-                "currentSession.accessToken."
+                "Firebase ID token from the Flutter client "
+                "(Authorization: Bearer <id_token>). "
+                "Sign in with Google via Firebase Auth."
             ),
         }
 

@@ -13,7 +13,11 @@ COPY main.py ./
 COPY docker/entrypoint.sh /entrypoint.sh
 
 ENV PYTHONPATH=/app
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh \
+    && adduser --disabled-password --gecos '' appuser \
+    && chown -R appuser:appuser /app /entrypoint.sh
+
+USER appuser
 
 EXPOSE 8000
 

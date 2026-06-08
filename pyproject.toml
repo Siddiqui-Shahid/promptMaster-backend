@@ -1,10 +1,11 @@
 [project]
 name = "fastapilearning"
 version = "0.1.0"
-description = "Stateless FastAPI backend for Supabase auth and prompt generation"
+description = "Stateless FastAPI backend for Firebase auth and prompt generation"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "certifi>=2024.0.0",
     "fastapi>=0.136.1",
     "PyJWT[crypto]>=2.10.0",
     "python-dotenv>=1.0.0",

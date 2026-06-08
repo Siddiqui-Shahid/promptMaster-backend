@@ -1,14 +1,14 @@
 # Prompt Master API
 
-Stateless FastAPI backend: **Supabase JWT verification** + **prompt generation**. No database.
+Stateless FastAPI backend: **Firebase JWT verification** + **prompt generation**. No database.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/health` | No | Liveness check |
-| POST | `/prompts/generate` | Bearer (Supabase JWT) | Generate a business prompt |
+| POST | `/prompts/generate` | Bearer (Firebase ID token) | Generate a business prompt |
 | GET | `/docs` | No | Swagger UI |
 
-Login happens in the **Flutter app** via Supabase Google OAuth; this API only validates the access token.
+Login happens in the **Flutter app** via Firebase Google sign-in; this API only validates the ID token.
 
 ## Local run
 
@@ -27,7 +27,7 @@ Flutter web must call the API from an origin allowed by CORS (localhost / 127.0.
 
 | Variable | Description |
 |----------|-------------|
-| `SUPABASE_URL` | Your Supabase project URL |
+| `FIREBASE_PROJECT_ID` | Your Firebase project ID |
 | `CORS_ALLOWED_ORIGINS` | Extra comma-separated origins (production frontend URL) |
 | `CORS_ALLOWED_ORIGIN_REGEX` | Local dev pattern (default covers Flutter web ports) |
 | `RATE_LIMIT_PROMPT_GENERATE` | e.g. `30/hour` |
@@ -42,7 +42,7 @@ docker compose up --build
 
 ```text
 app/
-├── auth/       # Supabase JWKS JWT verification
+├── auth/       # Firebase JWKS JWT verification
 ├── prompts/    # Schemas, templates, generate service + route
 ├── core/       # Config, logging, OpenAPI, request size limit
 └── base.py     # FastAPI app + CORS
